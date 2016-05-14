@@ -7,14 +7,10 @@ class wvRN():
 
     use_probabilities = True
     probability_threshold = 0.5
-
     use_previous_step = False
-
-<<<<<<< HEAD
     use_weights = False
-=======
     test = False
->>>>>>> 719f255ae497ca4e26a5671263645f869cdf8d06
+
 
     def __init__(self):
         pass
@@ -69,15 +65,6 @@ class wvRN():
 
         return (prob_pos, prob_neg)
 
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *
-
-class cdRN():
-    def __init__(self):
-        pass
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *
-
 class nBC():
 
     cpd = None
@@ -85,12 +72,9 @@ class nBC():
 
     use_probabilities = True
     probability_threshold = 0.5
-
-<<<<<<< HEAD
     use_weights = False
-=======
     test = False
->>>>>>> 719f255ae497ca4e26a5671263645f869cdf8d06
+
 
     def __init__(self):
         pass
@@ -230,14 +214,6 @@ class nBC():
 
         return (prob_pos, prob_neg)
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *
-
-class nLB():
-    def __init__(self):
-        pass
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - *
-
 class lrRN():
 
     test = False
@@ -295,13 +271,11 @@ class lrRN():
         neighbors = graph.vs.select(graph.neighborhood(node))
 
         for neigh in neighbors:
-<<<<<<< HEAD
             if node.index != neigh.index:
                 # (re-) Initialize counts per neighbor
                 pos_neighs = 0
                 neg_neighs = 0
 
-=======
             # (re-) Initialize counts per neighbor
             pos_neighs = 0
             neg_neighs = 0
@@ -313,7 +287,6 @@ class lrRN():
                 else:
                     neg_neighs += 1
             else:
->>>>>>> 719f255ae497ca4e26a5671263645f869cdf8d06
                 if neigh['use_label'] == True:
                     if neigh['class'] == '+':
                         pos_neighs += 1
@@ -329,23 +302,13 @@ class lrRN():
                         le_class = 1
                     else:
                         le_class = 0
-<<<<<<< HEAD
 
                 if (self.use_proportions):
                     pos_neighs = pos_neighs / float(len(neighbors))
                     neg_neighs = neg_neighs / float(len(neighbors))
-=======
-
-        #     # TODO: this might have caused a bug!!! :(
-        #     if (self.use_proportions):
-        #         pos_neighs = pos_neighs / float(len(neighbors))
-        #         neg_neighs = neg_neighs / float(len(neighbors))
-        #
-        # x.append([pos_neighs, neg_neighs])
 
         pos_neighs_prop = pos_neighs / float(len(neighbors))
         neg_neighs_prop = neg_neighs / float(len(neighbors))
->>>>>>> 719f255ae497ca4e26a5671263645f869cdf8d06
 
         x.append([pos_neighs, neg_neighs, pos_neighs_prop, neg_neighs_prop])
 

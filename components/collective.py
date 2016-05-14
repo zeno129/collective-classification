@@ -2,13 +2,6 @@ import random
 import numpy as np
 
 
-class IterativeClassification():
-    '''Collective Inference Method: Iterative Classification'''
-
-    def __init__(self):
-        pass
-
-
 class RelaxationLabeling():
     '''Collective Inference Method: Relaxation Labeling'''
 
