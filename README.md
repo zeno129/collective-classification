@@ -1,5 +1,8 @@
 # Collective Classification
 
+## Work in progress
+This is still a work in progress for a Collective Classification Python package.
+
 ## Methods
 
 ### Collective Inference
