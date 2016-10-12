@@ -22,6 +22,11 @@ class Inference():
         '''
         # print len(graph.vs)
         self.graph = graph.copy()
+
+        # Add node ids
+        # if 'id' not in self.graph.vs.attributes():
+        self.graph.vs['id'] = range(self.graph.vcount())
+
         self.collective = collective
         self.relational = relational
 

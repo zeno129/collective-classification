@@ -1,0 +1,4 @@
+*.pkl
+*.pyc
+.idea
+examples/plots

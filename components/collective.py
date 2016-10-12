@@ -1,5 +1,18 @@
 import random
 import numpy as np
+import math
+
+def inv_sigmoid(x):
+    return np.log(x / float((1 - x)))
+
+def sigmoid(x):
+    return 1.0 / float((1.0 + np.exp(-x)))
+
+class IterativeClassification():
+    '''Collective Inference Method: Iterative Classification'''
+
+    def __init__(self):
+        pass
 
 
 class RelaxationLabeling():
@@ -59,40 +72,45 @@ class RelaxationLabeling():
                 # Step 2.5: % labels bootstrap  - - - *
                 if self.percent_labeled > 0:
                     # We will bootstrap from the nodes in the training set
-                    if 'id' not in nodes.attributes():
-                        graph.vs['id'] = range(len(graph.vs))
+                    # graph.vs['id'] = range(graph.vcount())
                     labeling = graph.vs.select(partition_eq=0)['id']
                     random.shuffle(labeling)
-                    upto = len(nodes) * (self.percent_labeled / 100)
+                    upto = int(math.ceil(len(nodes) * (self.percent_labeled / float(100))))
                     to_label = labeling[:upto + 1]
 
                     graph.vs.select(to_label)['use_label'] = True
 
                 # Step 3: Iterate - - - - - - - - - - *
-                for o in ordering:
-                    prob_pos, prob_neg = relational.predict(graph, nodes[o])
+                # Store probabilities in a list (same order)
+                prob_pos_iter = [relational.predict(graph, nodes[o])[0] for o in ordering]
 
-                    if np.isfinite(prob_pos) and np.isfinite(prob_neg):
-                        if (prob_pos + prob_neg) < 0.9:
-                            # Scale (pseudo?) probabilities for coin flip
-                            prob_total = float(prob_pos + prob_neg)
-                            prob_pos = prob_pos / prob_total
-                            prob_neg = prob_neg / prob_total
+                # Assign probabilities to all at same time
+                # nodes[ordering]['probability'] = probs_iter
+                # nodes[ordering]['pred'] = labels_iter
 
-                    # Do new prediction
-                    if prob_pos >= prob_neg:
-                        label = '+'
-                    else:
-                        label = '-'
+                # Do Joel's probability correction - - - - - - - - *
+                # Step 1: transform probabilities to logit space
+                sig_probs_iter = [inv_sigmoid(p) if (np.isfinite(p) and p < 1) else p for p in prob_pos_iter]
 
-                    nodes[o]['probability'] = prob_pos
-                    nodes[o]['pred'] = label
+                # Step 2: calculate offset location
+                tmp = sorted(sig_probs_iter)
+                phi = self.prior['-'] * len(prob_pos_iter)
+                h_phi = tmp[int(phi)]
+
+                # Step 3: adjust logits
+                sig_probs_iter = [h_i - h_phi for h_i in sig_probs_iter]
+
+                # Step 4: transform back to probabilities
+                prob_pos_iter = [sigmoid(h_i) for h_i in sig_probs_iter]
+
+                # - - - - - - - - - - - - - - - - - - - - - - - - *
+
+                nodes[ordering]['probability'] = prob_pos_iter
+                nodes[ordering]['pred'] = ['+' if p >= 0.5 else '-' for p in prob_pos_iter]
+
 
                 if 'pred' in nodes.attributes() and nodes['pred'] == prev_labels:
                     classes_changed = False
-
-            # for n in nodes:
-            #     n['probability'] = n['prob']
 
             # Note: Probabilities are stored in graph
 
@@ -128,11 +146,6 @@ class GibbsSampling():
         # Step 1: Initialization  - - - - - - *
         # Init V^U with M_L -- don't have an M_L right now; use priors
         tosses = [random.uniform(0, 1) for o in range(len(nodes))]
-        
-        # TODO: Get rid of this (only for 1 experiment)
-        # tosses_2 = [random.uniform(0, 1) for o in range(len(nodes))]
-        # assignments = [[nodes[o]['class']] if tosses_2[i] <= 0.8 else ['+'] if t <= int(self.prior['+']) else ['-']
-        #                for i, t in enumerate(tosses)]
 
         assignments = [['+'] if t <= int(self.prior['+']) else ['-']
                        for t in tosses]
@@ -147,26 +160,38 @@ class GibbsSampling():
         # Step 2.5: % labels bootstrap  - - - *
         if self.percent_labeled > 0:
             # We will bootstrap from the nodes in the training set
-            if 'id' not in nodes.attributes():
-                graph.vs['id'] = range(len(graph.vs))
+            # graph.vs['id'] = range(graph.vcount())
             labeling = graph.vs.select(partition_eq=0)['id']
             random.shuffle(labeling)
-            upto = len(nodes) * (self.percent_labeled / 100)
+            upto = int(math.ceil(len(nodes) * (self.percent_labeled / float(100))))
             to_label = labeling[:upto + 1]
 
             graph.vs.select(to_label)['use_label'] = True
 
         # Step 3: Iterate - - - - - - - - - - *
         while (burn_in <= self.burn_in_iterations and iterations < self.max_iterations):
-            for o in ordering:
-                prob_pos, prob_neg = relational.predict(graph, nodes[o])
+            # Store probabilities in a list (same order)
+            prob_pos_iter = [relational.predict(graph, nodes[o])[0] for o in ordering]
 
-                if np.isfinite(prob_pos) and np.isfinite(prob_neg):
-                    if (prob_pos + prob_neg) < 0.9:
-                        # Scale (pseudo?) probabilities for coin flip
-                        prob_total = float(prob_pos + prob_neg)
-                        prob_pos = prob_pos / prob_total
-                        prob_neg = prob_neg / prob_total
+            # Do Joel's probability correction - - - - - - - - *
+            # Step 1: transform probabilities to logit space
+            sig_probs_iter = [inv_sigmoid(p) if (np.isfinite(p) and p < 1) else p for p in prob_pos_iter]
+
+            # Step 2: calculate offset location
+            tmp = sorted(sig_probs_iter)
+            phi = self.prior['-'] * len(prob_pos_iter)
+            h_phi = tmp[int(phi)]
+
+            # Step 3: adjust logits
+            sig_probs_iter = [h_i - h_phi for h_i in sig_probs_iter]
+
+            # Step 4: transform back to probabilities
+            prob_pos_iter = [sigmoid(h_i) for h_i in sig_probs_iter]
+
+            # - - - - - - - - - - - - - - - - - - - - - - - - *
+
+            for i, o in enumerate(ordering):
+                prob_pos = prob_pos_iter[i]
 
                 # Flip coin
                 toss = random.uniform(0, 1)
@@ -176,11 +201,6 @@ class GibbsSampling():
                         label = '+'
                     else:
                         label = '-'
-                elif np.isfinite(prob_neg):
-                    if toss > prob_neg:
-                        label = '-'
-                    else:
-                        label = '+'
                 else:
                     if toss <= self.prior['+']:
                         label = '+'
@@ -205,7 +225,7 @@ class GibbsSampling():
         # Note: Probabilities are stored in graph
 
 class TestUpperBound():
-    '''Collective Inference Method: None (Use classifier predictions)'''
+    '''Collective Inference Method: None (Use classifier predictions; i.e., oracle)'''
 
     prior = None
 
@@ -229,16 +249,11 @@ class TestUpperBound():
         ordering = range(len(nodes)) # will be less than nodes in entire graph
         random.shuffle(ordering)
 
+        # graph.vs['id'] = range(graph.vcount())
+
         # Step 3: Iterate - - - - - - - - - - *
         for o in ordering:
             prob_pos, prob_neg = relational.predict(graph, nodes[o])
-
-            if np.isfinite(prob_pos) and np.isfinite(prob_neg):
-                if (prob_pos + prob_neg) < 0.9:
-                    # Scale (pseudo?) probabilities for coin flip
-                    prob_total = float(prob_pos + prob_neg)
-                    prob_pos = prob_pos / prob_total
-                    prob_neg = prob_neg / prob_total
 
             # Do new prediction
             if prob_pos >= prob_neg:

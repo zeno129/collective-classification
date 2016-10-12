@@ -7,10 +7,12 @@ class wvRN():
 
     use_probabilities = True
     probability_threshold = 0.5
+
     use_previous_step = False
-    use_weights = False
+
     test = False
 
+    use_weights = False
 
     def __init__(self):
         pass
@@ -30,20 +32,23 @@ class wvRN():
         neighbors = graph.vs.select(graph.neighborhood(node))
 
         for neigh in neighbors:
-            if node.index != neigh.index:
-                edge = graph.es.select(_within=[node.index, neigh.index])
+            # if node.index != neigh.index:
+                # edge = graph.es.select(_within=[node.index, neigh.index])
+
+            # Use assigned ids from indices -- subgraph selection could change indices!
+            # if 'id' in node.attributes() and 'id' in neigh.attributes() and node['id'] != neigh['id']:
+            if node['id'] != neigh['id']:
+                edge = graph.es.select(_within=[node['id'], neigh['id']])
 
                 if self.use_weights and 'weight' in edge.attributes():
-                    # Get edge weights
                     weight = edge['weight']
 
                     if type(weight) is list:
                         if len(weight) >= 1:
                             weight = weight[0]
-                else:
-                    # Still need a default weight for the formula
-                    weight = 1
 
+                else:
+                    weight = 1
 
                 if weight != 0:
                     # Update normalizer
@@ -72,9 +77,10 @@ class nBC():
 
     use_probabilities = True
     probability_threshold = 0.5
-    use_weights = False
+
     test = False
 
+    use_weights = False
 
     def __init__(self):
         pass
@@ -104,8 +110,10 @@ class nBC():
 
             if self.use_weights:
                 for neigh in neighbors:
-                    if node.index != neigh.index:
-                        edge = graph.es.select(_within=[node.index, neigh.index])
+                    # Use assigned ids from indices -- subgraph selection could change indices!
+                    # if 'id' in node.attributes() and 'id' in neigh.attributes() and node['id'] != neigh['id']:
+                    if node['id'] != neigh['id']:
+                        edge = graph.es.select(_within=[node['id'], neigh['id']])
 
                         if self.use_weights and 'weight' in edge.attributes():
                             weight = edge['weight']
@@ -115,6 +123,7 @@ class nBC():
                                     weight = weight[0]
                         else:
                             weight = 1
+
                         if weight == 1:
                             if node['class'] == 1:
                                 counts['+'][neigh['class']] += 1
@@ -129,12 +138,13 @@ class nBC():
                     counts['-'][1] += neighbors['class'].count(1)
                     counts['-'][0] += neighbors['class'].count(0)
 
-                if node.index in neighbors.indices:
+                # Avoid any self-loops
+                # Use assigned ids from indices -- subgraph selection could change indices!
+                if node['id'] in neighbors['id']:
                     if node['class'] == 1:
                         counts['+'][1] -= 1
                     elif node['class'] == 0:
                         counts['-'][0] -= 1
-
 
         # Add Laplace correction
         self.cpd = {0: {'+': (counts['+'][0] + 1) / float(counts['+'][0] + counts['+'][1] + 2),
@@ -159,20 +169,45 @@ class nBC():
 
         # Get neighbors
         neighbors = graph.vs.select(graph.neighborhood(node))
+
         if self.use_weights:
             for neigh in neighbors:
-                edge = graph.es.select(_within=[node.index, neigh.index])
+                # Use assigned ids from indices -- subgraph selection could change indices!
+                # if 'id' in node.attributes() and 'id' in neigh.attributes() and node['id'] != neigh['id']:
+                if node['id'] != neigh['id']:
+                    edge = graph.es.select(_within=[node['id'], neigh['id']])
 
-                if self.use_weights and 'weight' in edge.attributes():
-                    weight = edge['weight']
+                    if self.use_weights and 'weight' in edge.attributes():
+                        weight = edge['weight']
 
-                    if type(weight) is list:
-                        if len(weight) >= 1:
-                            weight = weight[0]
-                else:
-                    weight = 1
+                        if type(weight) is list:
+                            if len(weight) >= 1:
+                                weight = weight[0]
+                    else:
+                        weight = 1
 
-                if weight == 1:
+                    if weight == 1:
+                        if neigh['use_label'] == True:
+                            prob_neg *= self.cpd[neigh['class']]['-']
+                            prob_pos *= self.cpd[neigh['class']]['+']
+                        elif 'pred' in neigh.attributes() and neigh['pred'] is not None:
+                            if neigh['pred'] == '+':
+                                le_class = 1
+                            else:
+                                le_class = 0
+                            prob_neg *= self.cpd[le_class]['-']
+                            prob_pos *= self.cpd[le_class]['+']
+                        elif 'init' in neigh.attributes() and neigh['init'] is not None:
+                            if neigh['init'] == '+':
+                                le_class = 1
+                            else:
+                                le_class = 0
+                            prob_neg *= self.cpd[le_class]['-']
+                            prob_pos *= self.cpd[le_class]['+']
+        else:
+            for neigh in neighbors:
+                # Use assigned ids from indices -- subgraph selection could change indices!
+                if 'id' in node.attributes() and 'id' in neigh.attributes() and node['id'] != neigh['id']:
                     if neigh['use_label'] == True:
                         prob_neg *= self.cpd[neigh['class']]['-']
                         prob_pos *= self.cpd[neigh['class']]['+']
@@ -190,27 +225,12 @@ class nBC():
                             le_class = 0
                         prob_neg *= self.cpd[le_class]['-']
                         prob_pos *= self.cpd[le_class]['+']
-        else:
-            for neigh in neighbors:
-                if neigh['use_label'] == True:
-                    prob_neg *= self.cpd[neigh['class']]['-']
-                    prob_pos *= self.cpd[neigh['class']]['+']
-                elif 'pred' in neigh.attributes() and neigh['pred'] is not None:
-                    if neigh['pred'] == '+':
-                        le_class = 1
-                    else:
-                        le_class = 0
-                    prob_neg *= self.cpd[le_class]['-']
-                    prob_pos *= self.cpd[le_class]['+']
-                elif 'init' in neigh.attributes() and neigh['init'] is not None:
-                    if neigh['init'] == '+':
-                        le_class = 1
-                    else:
-                        le_class = 0
-                    prob_neg *= self.cpd[le_class]['-']
-                    prob_pos *= self.cpd[le_class]['+']
 
-
+        if np.isfinite(prob_pos) and np.isfinite(prob_neg):
+            # Normalize pseudo-probabilities to sum up to 1
+            prob_total = float(prob_pos + prob_neg)
+            prob_pos = prob_pos / prob_total
+            prob_neg = prob_neg / prob_total
 
         return (prob_pos, prob_neg)
 
@@ -242,6 +262,14 @@ class lrRN():
             pos_neighs = neighbors['class'].count(1)
             neg_neighs = neighbors['class'].count(0)
 
+            # Avoid any self-loops
+            # Use assigned ids from indices -- subgraph selection could change indices!
+            if node['id'] in neighbors['id']:
+                if node['class'] == 1:
+                    pos_neighs -= 1
+                elif node['class'] == 0:
+                    neg_neighs -= 1
+
             # if (self.use_proportions):
             #     pos_neighs = pos_neighs / float(len(neighbors))
             #     neg_neighs = neg_neighs / float(len(neighbors))
@@ -267,45 +295,48 @@ class lrRN():
 
         x = []
 
+        # Initialize counts
+        pos_neighs = 0
+        neg_neighs = 0
+
         # Get neighbors
         neighbors = graph.vs.select(graph.neighborhood(node))
 
         for neigh in neighbors:
-            if node.index != neigh.index:
+            # Use assigned ids from indices -- subgraph selection could change indices!
+            # if 'id' in node.attributes() and 'id' in neigh.attributes() and node['id'] != neigh['id']:
+            if node['id'] != neigh['id']:
                 # (re-) Initialize counts per neighbor
-                pos_neighs = 0
-                neg_neighs = 0
+                # pos_neighs = 0
+                # neg_neighs = 0
 
-            # (re-) Initialize counts per neighbor
-            pos_neighs = 0
-            neg_neighs = 0
-
-            if self.test:
-                # Use ground truth for test
-                if neigh['class'] == '+':
-                    pos_neighs += 1
-                else:
-                    neg_neighs += 1
-            else:
-                if neigh['use_label'] == True:
+                if self.test:
+                    # Use ground truth for test
                     if neigh['class'] == '+':
                         pos_neighs += 1
                     else:
                         neg_neighs += 1
-                elif 'pred' in neigh.attributes() and neigh['pred'] is not None:
-                    if neigh['pred'] == '+':
-                        pos_neighs += 1
-                    else:
-                        neg_neighs += 1
-                elif 'init' in neigh.attributes() and neigh['init'] is not None:
-                    if neigh['init'] == '+':
-                        le_class = 1
-                    else:
-                        le_class = 0
+                else:
+                    if neigh['use_label'] == True:
+                        if neigh['class'] == '+':
+                            pos_neighs += 1
+                        else:
+                            neg_neighs += 1
+                    elif 'pred' in neigh.attributes() and neigh['pred'] is not None:
+                        if neigh['pred'] == '+':
+                            pos_neighs += 1
+                        else:
+                            neg_neighs += 1
+                    elif 'init' in neigh.attributes() and neigh['init'] is not None:
+                        if neigh['init'] == '+':
+                            le_class = 1
+                        else:
+                            le_class = 0
 
-                if (self.use_proportions):
-                    pos_neighs = pos_neighs / float(len(neighbors))
-                    neg_neighs = neg_neighs / float(len(neighbors))
+        #     if (self.use_proportions):
+        #         pos_neighs = pos_neighs / float(len(neighbors))
+        #         neg_neighs = neg_neighs / float(len(neighbors))
+
 
         pos_neighs_prop = pos_neighs / float(len(neighbors))
         neg_neighs_prop = neg_neighs / float(len(neighbors))
