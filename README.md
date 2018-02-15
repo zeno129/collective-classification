@@ -21,3 +21,6 @@ See the [requirements.txt](requirements.txt)
 - weighted-voting (wvRN)
 - naive Bayes (nBC)
 - logistic regression
+
+## Example
+See the following [gist](https://gist.github.com/zeno129/9b429f6312cf35bf43309ecaba2120cd)
